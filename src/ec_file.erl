@@ -11,6 +11,7 @@
          exists/1,
          copy/2,
          copy/3,
+         move/2,
          insecure_mkdtemp/0,
          mkdir_path/1,
          mkdir_p/1,
@@ -85,6 +86,29 @@ copy(From, To) ->
             end;
         {error, Error} ->
             {error, {copy_failed, Error}}
+    end.
+
+%% @doc move item recursively to a new location. Falls back on copy/3
+%%      if the From and To reside on different filesystem mounts.
+-spec move(file:name(), file:name()) -> ok | {error, Reason::term()}.
+move(From, To) ->
+    case file:rename(From, To) of
+        {error, exdev} ->
+            case copy(From, To, [recursive]) of
+                ok ->
+                    case file:delete(From) of
+                        ok ->
+                            ok;
+                        {error, DelError} ->
+                            {error, {delete_failed, DelError}}
+                    end;
+                {error, CpError} ->
+                    {error, {copy_failed, CpError}}
+            end;
+        {error, RnError} ->
+            {error, {rename_failed, RnError}};
+        ok ->
+            ok
     end.
 
 %% @doc return an md5 checksum string or a binary. Same as unix utility of
